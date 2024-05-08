@@ -21,6 +21,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"io"
 )
 
@@ -47,7 +48,9 @@ func Decrypt(data []byte, key []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	if len(cipherText) == 0 {
+		return nil, fmt.Errorf("text is null")
+	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err

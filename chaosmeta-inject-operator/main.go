@@ -21,7 +21,11 @@ import (
 	"flag"
 	"fmt"
 	initwebhook "github.com/traas-stack/chaosmeta/chaosmeta-common/webhook"
+	"github.com/traas-stack/chaosmeta/chaosmeta-inject-operator/pkg/executor/remoteexecutor"
+	"github.com/traas-stack/chaosmeta/chaosmeta-inject-operator/pkg/executor/remoteexecutor/middlewareexecutor"
+	"github.com/traas-stack/chaosmeta/chaosmeta-inject-operator/pkg/global"
 	"github.com/traas-stack/chaosmeta/chaosmeta-inject-operator/pkg/restclient"
+	"io"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -29,24 +33,22 @@ import (
 
 	"github.com/traas-stack/chaosmeta/chaosmeta-inject-operator/pkg/common"
 	"github.com/traas-stack/chaosmeta/chaosmeta-inject-operator/pkg/config"
-	"github.com/traas-stack/chaosmeta/chaosmeta-inject-operator/pkg/executor/remoteexecutor"
 	"github.com/traas-stack/chaosmeta/chaosmeta-inject-operator/pkg/selector"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	injectv1alpha1 "github.com/traas-stack/chaosmeta/chaosmeta-inject-operator/api/v1alpha1"
+	"github.com/traas-stack/chaosmeta/chaosmeta-inject-operator/controllers"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"net/http"
+	_ "net/http/pprof"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	injectv1alpha1 "github.com/traas-stack/chaosmeta/chaosmeta-inject-operator/api/v1alpha1"
-	"github.com/traas-stack/chaosmeta/chaosmeta-inject-operator/controllers"
-	"net/http"
-	_ "net/http/pprof"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -119,6 +121,7 @@ func main() {
 	selector.SetupAnalyzer(mgr.GetClient())
 	common.SetGoroutinePool(mainConfig.Worker.PoolCount)
 	setupLog.Info(fmt.Sprintf("set goroutine pool success: %d", mainConfig.Worker.PoolCount))
+	http.HandleFunc("/download/chaosmetad", handleChaosMetadDownload)
 	go func() {
 		err = http.ListenAndServe("localhost:8090", nil)
 		if err != nil {
@@ -145,12 +148,16 @@ func main() {
 		os.Exit(1)
 	}
 	// set executor
-	if err = remoteexecutor.SetGlobalRemoteExecutor(&mainConfig.Executor, mgr.GetConfig(), mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "set remote executor error")
+	//if err = remoteexecutor.SetGlobalRemoteExecutor(&mainConfig.Executor, mgr.GetConfig(), mgr.GetScheme()); err != nil {
+	//	setupLog.Error(err, "set remote executor error")
+	//	os.Exit(1)
+	//}
+
+	err = global.InitKubernetesClient()
+	if err != nil {
+		setupLog.Error(err, "init global client fail")
 		os.Exit(1)
 	}
-	setupLog.Info(fmt.Sprintf("set remote executor success: %s", mainConfig.Executor.Mode))
-
 	// start watching
 	if err = (&controllers.ExperimentReconciler{
 		Client: mgr.GetClient(),
@@ -158,6 +165,12 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Experiment")
 		os.Exit(1)
 	}
+
+	if err = remoteexecutor.AutoSelectRemoteExecutor(context.Background(), &mainConfig.Executor, mgr.GetConfig(), mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "auto select remote executor error")
+		os.Exit(1)
+	}
+	setupLog.Info(fmt.Sprintf("set remote executor success: %s", mainConfig.Executor.Mode))
 
 	if err = (&injectv1alpha1.Experiment{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Experiment")
@@ -185,6 +198,34 @@ func main() {
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
+	}
+}
+
+func handleChaosMetadDownload(w http.ResponseWriter, r *http.Request) {
+	filePath := fmt.Sprintf("/workspace/download/chaosmetad/chaosmetad-%s-%s-%s.tar.gz", middlewareexecutor.ChaosmetadVersion, middlewareexecutor.Os, middlewareexecutor.Arch)
+	// 打开文件
+	file, err := os.Open(filePath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to open file: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+	// 获取文件信息
+	info, err := file.Stat()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get file info: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// 设置HTTP响应头
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", info.Name()))
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", info.Size()))
+
+	// 直接复制文件内容到HTTP响应体
+	if _, err := io.Copy(w, file); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to write file content: %v", err), http.StatusInternalServerError)
+		return
 	}
 }
 

@@ -63,7 +63,7 @@ const AddOrUpdateClusterDrawer = NiceModal.create((props: {
                 const formData = await form.validateFields();
                 const res = await addClusterRequest.run({
                   name: formData.name,
-                  kubeconfig: formData.kubeconfig,
+                  kubeconfig: btoa(formData.kubeconfig),
                 });
 
                 if (res.data && res.data.id) {
@@ -88,7 +88,7 @@ const AddOrUpdateClusterDrawer = NiceModal.create((props: {
                 const res = await updateClusterRequest.run({
                   id: entity?.id,
                   name: formData.name,
-                  kubeconfig: formData.kubeconfig,
+                  kubeconfig: btoa(formData.kubeconfig),
                 });
 
                 if (res.data && res.data) {

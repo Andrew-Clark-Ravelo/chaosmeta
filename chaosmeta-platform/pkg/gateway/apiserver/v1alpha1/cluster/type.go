@@ -29,6 +29,7 @@ type ClusterData struct {
 	Id         interface{} `json:"id"`
 	Name       string      `json:"name"`
 	Kubeconfig string      `json:"kubeconfig"`
+	CreateTime string      `json:"createTime"`
 }
 
 type ListClusterResponse struct {

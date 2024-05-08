@@ -255,6 +255,10 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: LOCAL_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
         livenessProbe:
           httpGet:
             path: /healthz
@@ -379,6 +383,17 @@ data:
           "daemonNs": "chaosmeta",
           "daemonLabel": {
             "app.chaosmeta.io": "chaosmeta-daemon"
+          }
+        },
+        "middlewareConfig" : {
+          "url" : "http://shell-online-api.global.alipay.com",
+          "mistConfig" : {
+            "antVipUrl" : "antvip-pool.global.alipay.com",
+            "bkmiUrl" : "bkmi-read-pool.global.alipay.com",
+            "appName" : "antchaos",
+            "tenant" : "ALIPAY",
+            "mode" : "prod",
+            "secret" : "antchaos_fault_inject_online"
           }
         }
       }
