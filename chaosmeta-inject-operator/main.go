@@ -73,8 +73,8 @@ func main() {
 	var enableLeaderElection bool
 	var probeAddr string
 	//flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
+	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8083", "The address the probe endpoint binds to.")
+	flag.BoolVar(&enableLeaderElection, "leader-elect", true,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	opts := zap.Options{
@@ -85,13 +85,20 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	err := global.InitKubernetesClient()
+	if err != nil {
+		setupLog.Error(err, "init global client fail")
+		os.Exit(1)
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
 		//MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "9cb44693.chaosmeta.io",
+		Port:                    9443,
+		HealthProbeBindAddress:  probeAddr,
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionID:        "9cb44693.chaosmeta.io",
+		LeaderElectionNamespace: "chaosmeta",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -141,23 +148,13 @@ func main() {
 		setupLog.Error(err, "set APIServer client error")
 		os.Exit(1)
 	}
-	setupLog.Info(fmt.Sprintf("set APIServer for cloud object success: %v", t))
+
 	err = initwebhook.InitCert(setupLog, ComponentInject)
 	if err != nil {
 		setupLog.Error(err, "init cert failed")
 		os.Exit(1)
 	}
-	// set executor
-	//if err = remoteexecutor.SetGlobalRemoteExecutor(&mainConfig.Executor, mgr.GetConfig(), mgr.GetScheme()); err != nil {
-	//	setupLog.Error(err, "set remote executor error")
-	//	os.Exit(1)
-	//}
 
-	err = global.InitKubernetesClient()
-	if err != nil {
-		setupLog.Error(err, "init global client fail")
-		os.Exit(1)
-	}
 	// start watching
 	if err = (&controllers.ExperimentReconciler{
 		Client: mgr.GetClient(),

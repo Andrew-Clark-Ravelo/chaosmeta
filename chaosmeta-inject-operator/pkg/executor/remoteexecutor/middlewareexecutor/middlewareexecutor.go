@@ -7,6 +7,7 @@ import (
 	"github.com/traas-stack/chaosmeta/chaosmeta-inject-operator/pkg/executor/remoteexecutor/middlewareexecutor/common"
 	"github.com/traas-stack/chaosmeta/chaosmeta-inject-operator/pkg/model"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
 )
 
@@ -31,9 +32,12 @@ type MiddleWareExecutor struct {
 
 func (r *MiddleWareExecutor) CheckExecutorWay(ctx context.Context) error {
 	// 对本机执行一次查询
+	logger := log.FromContext(ctx)
 	checkCmd := "ls"
 	host := os.Getenv("LOCAL_IP")
+	logger.Info("hostip", "ip: ", host)
 	res := r.Middleware.ExecCmdTask(ctx, host, checkCmd)
+	logger.Info("CheckExecutorWay", "res", res)
 	if !res.Success {
 		return fmt.Errorf(res.Message)
 	}

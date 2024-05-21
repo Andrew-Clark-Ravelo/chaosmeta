@@ -384,7 +384,7 @@ spec:
       - args:
         - server
         env: []
-        image: registry.cn-hangzhou.aliyuncs.com/chaosmeta/argocli:v3.4.10
+        image: registry.cn-hangzhou.aliyuncs.com/chaosmeta/argocli:v3.4.10.3
         name: argo-server
         ports:
         - containerPort: 2746

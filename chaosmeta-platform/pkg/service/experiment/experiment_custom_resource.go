@@ -94,7 +94,7 @@ func GetWorkflowStruct(experimentInstanceId string, nodes []*experiment_instance
 					},
 					Resource: &v1alpha1.ResourceTemplate{
 						Action:           "create",
-						FailureCondition: "status.status == failed",
+						FailureCondition: "status.status in (failed, partSuccess)",
 						SuccessCondition: "status.phase == recover,status.status == success",
 						Manifest:         fmt.Sprintf("{{inputs.parameters.%s}}", ParametersName),
 					},

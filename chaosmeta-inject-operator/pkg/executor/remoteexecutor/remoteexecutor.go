@@ -60,7 +60,6 @@ func AutoSelectRemoteExecutor(ctx context.Context, config *config.ExecutorConfig
 	/**
 	 * 启动时通道自动选择
 	 */
-	config.DaemonsetConfig.DaemonName = "chaosmeta-daemon"
 	logger := log.FromContext(ctx)
 	daemonSetRemoteExecutor := &daemonsetexecutor.DaemonsetRemoteExecutor{
 		RESTConfig: restConfig,
@@ -74,7 +73,6 @@ func AutoSelectRemoteExecutor(ctx context.Context, config *config.ExecutorConfig
 		DaemonsetLabel: config.DaemonsetConfig.DaemonLabel,
 		DaemonsetName:  config.DaemonsetConfig.DaemonName,
 	}
-	//logger.Info("%v", config)
 	if err := daemonSetRemoteExecutor.CheckExecutorWay(ctx); err == nil {
 		globalRemoteExecutor = daemonSetRemoteExecutor
 		logger.Info("select daemonSet way")
@@ -96,6 +94,9 @@ func AutoSelectRemoteExecutor(ctx context.Context, config *config.ExecutorConfig
 		logger.Info("select middleware way")
 		globalRemoteExecutor = middlewareRemoteExecutor
 		return nil
+	} else {
+		globalRemoteExecutor = middlewareRemoteExecutor
+		logger.Error(err, "fail to check middleware way")
 	}
 
 	agentExecutor := &agentexecutor.AgentRemoteExecutor{

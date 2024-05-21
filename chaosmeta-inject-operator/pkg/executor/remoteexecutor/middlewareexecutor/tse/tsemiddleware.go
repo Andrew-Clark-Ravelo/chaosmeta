@@ -51,6 +51,7 @@ func (r *TseMiddleware) ExecCmdTask(ctx context.Context, host string, cmd string
 		Success: false,
 		Message: "fail to exec",
 	}
+	fmt.Println("ExecCmdTask")
 	requestBody := &TseTaskRequest{}
 	requestBody.Ip = host
 	requestBody.Exeurl = cmdPrefix + cmd
@@ -59,19 +60,25 @@ func (r *TseMiddleware) ExecCmdTask(ctx context.Context, host string, cmd string
 	requestBody.Key = ak
 	requestBody.User = "root"
 	requestBody.Sign = hmacSha1(requestBody, sk)
+	fmt.Println("RequestBody", requestBody)
 	requestBodyStr, err := json.Marshal(requestBody)
 	if err != nil {
+		errResult.Message = err.Error()
 		return errResult
 	}
 	execTaskUrl := fmt.Sprintf("%s/api/task", r.TseUrl)
 	req, err := http.NewRequest("POST", execTaskUrl, bytes.NewBuffer(requestBodyStr))
 	if err != nil {
+		fmt.Println(err)
+		errResult.Message = err.Error()
 		return errResult
 	}
 	client := &http.Client{}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
+		fmt.Println(err)
+		errResult.Message = err.Error()
 		return errResult
 	}
 	result := &common.TaskResult{}
@@ -82,9 +89,10 @@ func (r *TseMiddleware) ExecCmdTask(ctx context.Context, host string, cmd string
 	}
 	err = json.Unmarshal(body, result)
 	if err != nil {
+		errResult.Message = err.Error()
 		return errResult
 	}
-	return common.TaskResult{}
+	return *result
 }
 
 func hmacSha1(tseTaskRequest *TseTaskRequest, key string) string {
