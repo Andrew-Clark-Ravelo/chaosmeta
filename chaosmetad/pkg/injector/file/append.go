@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/injector"
+	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/log"
 	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/utils/filesys"
 	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/utils/process"
-	"strings"
 )
 
 func init() {
@@ -37,11 +37,11 @@ type AppendInjector struct {
 }
 
 type AppendArgs struct {
-	Path     string `json:"path"`
-	Content  string `json:"content,omitempty"`
-	Raw      bool   `json:"raw,omitempty"`
-	Count    int    `json:"count,omitempty"`
-	Interval int    `json:"interval,omitempty"`
+	Path    string `json:"path"`
+	Content string `json:"content,omitempty"`
+	//Raw      bool   `json:"raw,omitempty"`
+	Count    int `json:"count,omitempty"`
+	Interval int `json:"interval,omitempty"`
 }
 
 type AppendRuntime struct {
@@ -66,7 +66,7 @@ func (i *AppendInjector) SetDefault() {
 func (i *AppendInjector) SetOption(cmd *cobra.Command) {
 	cmd.Flags().StringVarP(&i.Args.Path, "path", "p", "", "file path, include dir and file name")
 	cmd.Flags().StringVarP(&i.Args.Content, "content", "c", "", "append content to the existed file")
-	cmd.Flags().BoolVarP(&i.Args.Raw, "raw", "r", false, "if raw content, raw content can not recover")
+	//cmd.Flags().BoolVarP(&i.Args.Raw, "raw", "r", false, "if raw content, raw content can not recover")
 	cmd.Flags().IntVarP(&i.Args.Count, "count", "C", 1, "repeat times")
 	cmd.Flags().IntVarP(&i.Args.Interval, "interval", "i", 0, "repeat interval, unit is second")
 }
@@ -105,18 +105,26 @@ func (i *AppendInjector) Validator(ctx context.Context) error {
 		return fmt.Errorf("file[%s] is not exist", i.Args.Path)
 	}
 
+	if _, err := decodeBase64(i.Args.Content); err != nil {
+		return fmt.Errorf("\"content is not a valid base64 format\"")
+	}
+
 	return nil
 }
 
 func (i *AppendInjector) Inject(ctx context.Context) error {
-	flag := getAppendFlag(i.Info.Uid)
+	logger := log.GetLogger(ctx)
+	//flag := getAppendFlag(i.Info.Uid)
 
-	if !i.Args.Raw {
-		i.Args.Content = strings.ReplaceAll(i.Args.Content, "\\n", "\n")
-		i.Args.Content = fmt.Sprintf("%s%s", strings.ReplaceAll(i.Args.Content, "\n", fmt.Sprintf("%s\n", flag)), flag)
-	}
+	//if !i.Args.Raw {
+	//	//i.Args.Content = strings.ReplaceAll(i.Args.Content, "\\n", "\n")
+	//	i.Args.Content = fmt.Sprintf("\n%s%s\n", strings.ReplaceAll(i.Args.Content, "\n", fmt.Sprintf("%s\n", flag)), flag)
+	//}
 
-	i.Args.Content = fmt.Sprintf("\n%s", i.Args.Content)
+	//i.Args.Content = fmt.Sprintf("\n%s", i.Args.Content)
+	i.Args.Content, _ = decodeBase64(i.Args.Content)
+	logger.Debugf("content is: %s", i.Args.Content)
+
 	if err := filesys.AppendFile(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, i.Args.Path, i.Args.Content, getAppendFlag(i.Info.Uid), i.Args.Count, i.Args.Interval); err != nil {
 		return fmt.Errorf("append content to %s error: %s", i.Args.Path, err.Error())
 	}
@@ -133,18 +141,18 @@ func (i *AppendInjector) Recover(ctx context.Context) error {
 		return fmt.Errorf("kill append process with key[%s] error: %s", getAppendFlag(i.Info.Uid), err.Error())
 	}
 
-	if i.Args.Raw {
-		return nil
-	}
-
-	exist, err := filesys.CheckFile(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, i.Args.Path)
-	if err != nil {
-		return fmt.Errorf("check exist file[%s] error: %s", i.Args.Path, err.Error())
-	}
-
-	if exist {
-		return filesys.DeleteLineByKey(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, i.Args.Path, getAppendFlag(i.Info.Uid))
-	}
+	//if i.Args.Raw {
+	//	return nil
+	//}
+	//
+	//exist, err := filesys.CheckFile(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, i.Args.Path)
+	//if err != nil {
+	//	return fmt.Errorf("check exist file[%s] error: %s", i.Args.Path, err.Error())
+	//}
+	//
+	//if exist {
+	//	return filesys.DeleteLineByKey(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, i.Args.Path, getAppendFlag(i.Info.Uid))
+	//}
 
 	return nil
 }

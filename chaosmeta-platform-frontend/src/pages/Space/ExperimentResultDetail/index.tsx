@@ -245,6 +245,7 @@ const AddExperiment = () => {
 
           {/* 编排信息的展示 */}
           <ArrangeInfoShow
+            resultDetail={resultDetail}
             arrangeList={arrangeList}
             curExecSecond={formatDuration(curExecSecond)}
             isResult

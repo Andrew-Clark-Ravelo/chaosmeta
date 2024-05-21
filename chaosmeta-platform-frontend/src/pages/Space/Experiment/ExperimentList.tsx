@@ -196,7 +196,7 @@ const ExperimentList: React.FC<unknown> = () => {
           handleDeleteExperiment?.run({ uuid });
           handleSearch();
         },
-        onCancel() {},
+        onCancel() { },
       });
     }
   };
@@ -556,11 +556,11 @@ const ExperimentList: React.FC<unknown> = () => {
                   desc={
                     spacePermission === 1
                       ? intl.formatMessage({
-                          id: 'experiment.table.noAuth.description',
-                        })
+                        id: 'experiment.table.noAuth.description',
+                      })
                       : intl.formatMessage({
-                          id: 'experiment.table.description',
-                        })
+                        id: 'experiment.table.description',
+                      })
                   }
                   topTitle={intl.formatMessage({
                     id: 'experiment.table.title',
@@ -629,12 +629,12 @@ const ExperimentList: React.FC<unknown> = () => {
             pagination={
               pageData?.experiments?.length > 0
                 ? {
-                    showQuickJumper: true,
-                    total: pageData?.total,
-                    current: pageData?.page,
-                    pageSize: pageData?.pageSize,
-                    showSizeChanger: true,
-                  }
+                  showQuickJumper: true,
+                  total: pageData?.total,
+                  current: pageData?.page,
+                  pageSize: pageData?.pageSize,
+                  showSizeChanger: true,
+                }
                 : false
             }
             onChange={(pagination: any, filters, sorter: any) => {

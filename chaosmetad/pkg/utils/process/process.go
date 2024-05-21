@@ -47,7 +47,7 @@ func getProcessKeyCmd(cr string, key string) string {
 	if cr == "" {
 		return fmt.Sprintf("ps -ef | grep '%s' | grep -v grep | grep -v '%s inject' | grep -v '%s recover' | grep -v 'chaosmeta_execns ' | awk '{print $2}'", key, utils.RootName, utils.RootName)
 	} else {
-		return fmt.Sprintf("ps -ef | grep '%s' | grep -v grep | grep -v '%s inject' | grep -v '%s recover' | grep -v 'chaosmeta_execns ' | awk '{print \\$2}'", key, utils.RootName, utils.RootName)
+		return fmt.Sprintf("ps -ef | grep '%s' | grep -v grep | grep -v '%s inject' | grep -v '%s recover' | grep -v 'chaosmeta_execns ' | awk '{print $2}'", key, utils.RootName, utils.RootName)
 	}
 }
 
@@ -59,7 +59,7 @@ func getProcessSignalKeyCmd(cr string, key string, signal int) string {
 	if cr == "" {
 		return fmt.Sprintf("ps -ef | grep '%s' | grep -v grep | grep -v '%s inject' | grep -v '%s recover' | grep -v 'chaosmeta_execns ' | awk '{print $2}' | xargs kill -%d", key, utils.RootName, utils.RootName, signal)
 	} else {
-		return fmt.Sprintf("ps -ef | grep '%s' | grep -v grep | grep -v '%s inject' | grep -v '%s recover' | grep -v 'chaosmeta_execns ' | awk '{print \\$2}' | xargs kill -%d", key, utils.RootName, utils.RootName, signal)
+		return fmt.Sprintf("ps -ef | grep '%s' | grep -v grep | grep -v '%s inject' | grep -v '%s recover' | grep -v 'chaosmeta_execns ' | awk '{print $2}' | xargs kill -%d", key, utils.RootName, utils.RootName, signal)
 	}
 }
 

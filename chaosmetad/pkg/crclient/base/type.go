@@ -17,6 +17,6 @@
 package base
 
 type SimpleProcess struct {
-	Pid  int
-	Cmd  string
+	Pid int
+	Cmd string
 }

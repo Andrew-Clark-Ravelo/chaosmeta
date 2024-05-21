@@ -23,10 +23,12 @@ import (
 	"fmt"
 	"github.com/traas-stack/chaosmeta/chaosmeta-inject-operator/api/v1alpha1"
 	"github.com/traas-stack/chaosmeta/chaosmeta-inject-operator/pkg/executor/remoteexecutor/base"
+	"github.com/traas-stack/chaosmeta/chaosmeta-inject-operator/pkg/global"
 	"github.com/traas-stack/chaosmeta/chaosmeta-inject-operator/pkg/model"
 	"github.com/traas-stack/chaosmeta/chaosmeta-inject-operator/pkg/restclient"
 	"github.com/traas-stack/chaosmeta/chaosmeta-inject-operator/pkg/selector"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
@@ -45,9 +47,13 @@ type DaemonsetRemoteExecutor struct {
 	//DaemonsetPolicy   DaemonsetPolicyType
 	DaemonsetNs    string
 	DaemonsetLabel map[string]string
-
+	DaemonsetName  string
 	//AutoLabelNode     bool
 	//NodeSelectorLabel map[string]string
+}
+
+func (r *DaemonsetRemoteExecutor) CheckExecutorWay(ctx context.Context) error {
+	return r.getDaemonSet(ctx)
 }
 
 func (r *DaemonsetRemoteExecutor) CheckAlive(ctx context.Context, injectObject string) error {
@@ -217,4 +223,13 @@ func (r *DaemonsetRemoteExecutor) getAgentPod(ctx context.Context, nodeIp string
 	}
 
 	return podList[0], nil
+}
+
+func (r *DaemonsetRemoteExecutor) getDaemonSet(ctx context.Context) error {
+	_, err := global.GlobalClient.AppsV1().DaemonSets(r.DaemonsetNs).Get(ctx, r.DaemonsetName, metav1.GetOptions{})
+	//_, err := selector.GetAnalyzer().GetDaemonSetByName(ctx, r.DaemonsetNs, r.DaemonsetName)
+	if err != nil {
+		return fmt.Errorf("fail to get daemonSet, %s, err: %s", r.DaemonsetName, err.Error())
+	}
+	return nil
 }

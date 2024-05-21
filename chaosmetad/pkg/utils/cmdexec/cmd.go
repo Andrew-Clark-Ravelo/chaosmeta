@@ -19,6 +19,7 @@ package cmdexec
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/crclient"
 	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/log"
@@ -256,7 +257,7 @@ func ExecContainer(ctx context.Context, cr, containerID string, namespaces []str
 
 	// exec ns
 	c := exec.Command("/bin/bash", "-c", fmt.Sprintf("%s -t %d %s -c \"%s\"",
-		utils.GetToolPath(namespace.ExecnsKey), targetPid, namespace.GetNsOption(namespaces), cmd))
+		utils.GetToolPath(namespace.ExecnsKey), targetPid, namespace.GetNsOption(namespaces), base64.StdEncoding.EncodeToString([]byte(cmd))))
 
 	var stdout, stderr bytes.Buffer
 	c.Stdout, c.Stderr = &stdout, &stderr

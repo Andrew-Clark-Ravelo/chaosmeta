@@ -14,9 +14,21 @@
     },
     "daemonsetConfig": {
       "localExecPath": "/tmp",
-      "daemonNs": "chaosmeta-inject",
+      "daemonNs": "chaosmeta",
       "daemonLabel": {
         "app.chaosmeta.io": "chaosmeta-daemon"
+      },
+      "daemonName": "chaosmeta-daemon"
+    },
+    "middlewareConfig" : {
+      "url" : "todo",
+      "mistConfig" : {
+        "antVipUrl" : "todo",
+        "bkmiUrl" : "todo",
+        "appName" : "chaosmetainject",
+        "tenant" : "ALIPAY",
+        "mode" : "todo",
+        "secretName" : "todo"
       }
     }
   }

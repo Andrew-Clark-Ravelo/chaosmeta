@@ -13,6 +13,7 @@ const routeMenu = {
   'menu.globalSettings': '全局设置',
   'menu.globalSettings.account': '账号管理',
   'menu.globalSettings.space': '空间管理',
+  'menu.globalSettings.cluster': '集群管理',
 };
 
 // 空间概览
@@ -162,7 +163,7 @@ const publicText = {
   atomicCapabilities: '原子能力',
   faultParameters: '故障参数',
   executionParameters:'执行参数',
-  judgmentParameters: '判定参数'
+  judgmentParameters: '判定参数',
 };
 
 // 实验
@@ -316,8 +317,41 @@ const spaceManagement = {
   'spaceManagement.noAuth.readonly.tip': '只读用户暂无法使用此功能',
   'spaceManagement.write': '读写成员',
   'spaceManagement.experimentCount': '实验数量',
+}
 
-  
+/** 集群管理 */
+const clusterManagement = {
+  'clusterManagement.title': '集群管理',
+  belongingCluster: '所属集群',
+  clusterName: '集群名称',
+  createTime: '添加时间',
+  actions: '操作',
+  update: '更新',
+  delete: '删除',
+  cancel: '取消',
+  confirm: '确定',
+  inputPlaceholder: '请输入集群名称',
+  'clusterManagement.membershipInfo': '所属集群',
+  'clusterManagement.membershipInfo.placeholder': '请选择所属集群',
+  'clusterManagement.membershipInfo.modified': '修改集群，执行实例可能会失效，请重新确认',
+  'clusterManagement.addCluster': '添加集群',
+  'clusterManagement.updateCluster': '更新集群',
+  'clusterManagement.clusterList': '集群列表',
+  'clusterManagement.deleteConfirm': '您确认要删除当前集群吗',
+  'clusterManagement.deleteSuccess': '集群删除成功',
+  'clusterManagement.addSuccess': '您已成功添加集群',
+  'clusterManagement.updateSuccess': '您已成功添加集群',
+  'clusterManagement.clusterConfigFile': '集群配置文件',
+  'clusterManagement.clusterConfigFileEmptyWaring': '请填写集群配置信息',
+  'clusterManagement.clusterConfigFilePlaceholder': '请拷贝目标 K8s 集群的配置文件文件路径一般为 "/home/.kube/config"，也可直接上传对应文件',
+}
+
+/** 文件文本上传组件 */
+const inputWithFileDragger = {
+  'inputWithFileDragger.draggerPlaceholder': '点击或拖拽 .txt 文件到此区域上传',
+  'inputWithFileDragger.fileTypeError': '仅支持上传规定格式文件，请重新选择',
+  'inputWithFileDragger.fileNameError': '文件名含有特殊字符',
+  'inputWithFileDragger.uploadAgain': '请重新上传',
 }
 
 export default {
@@ -337,5 +371,7 @@ export default {
   ...tagManageMent,
   ...login,
   ...account,
-  ...spaceManagement
+  ...spaceManagement,
+  ...clusterManagement,
+  ...inputWithFileDragger,
 };

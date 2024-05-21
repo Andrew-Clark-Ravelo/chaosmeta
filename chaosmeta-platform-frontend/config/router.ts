@@ -93,11 +93,17 @@ export default [
         icon: 'https://mdn.alipayobjects.com/huamei_d3kmvr/afts/img/A*8FUVTpn7RXIAAAAAAAAAAAAADmKmAQ/original',
       },
       // {
-      //   name: 'Agent管理',
+      //   name: 'agent',
       //   path: '/setting/agent',
       //   component: './GlobalSetting/Agent',
       //   icon: 'https://mdn.alipayobjects.com/huamei_d3kmvr/afts/img/A*tFm6TIYpRC8AAAAAAAAAAAAADmKmAQ/original',
       // },
+      {
+        name: 'cluster',
+        path: '/setting/cluster',
+        component: './GlobalSetting/Cluster',
+        icon: 'https://mdn.alipayobjects.com/huamei_d3kmvr/afts/img/A*tFm6TIYpRC8AAAAAAAAAAAAADmKmAQ/original',
+      },
     ],
   },
 ];

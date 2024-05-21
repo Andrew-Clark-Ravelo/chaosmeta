@@ -112,10 +112,15 @@ func (i *AddInjector) Validator(ctx context.Context) error {
 		}
 	}
 
+	if _, err := decodeBase64(i.Args.Content); err != nil {
+		return fmt.Errorf("\"content is not a valid base64 format\"")
+	}
+
 	return nil
 }
 
 func (i *AddInjector) Inject(ctx context.Context) error {
+	logger := log.GetLogger(ctx)
 	dir := filepath.Dir(i.Args.Path)
 	isDirExist, err := filesys.CheckDir(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, dir)
 	if err != nil {
@@ -127,6 +132,9 @@ func (i *AddInjector) Inject(ctx context.Context) error {
 			return fmt.Errorf("mkdir dir[%s] error: %s", dir, err.Error())
 		}
 	}
+
+	i.Args.Content, _ = decodeBase64(i.Args.Content)
+	logger.Debugf("content is: %s", i.Args.Content)
 
 	if err := filesys.OverWriteFile(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, i.Args.Path, i.Args.Content); err != nil {
 		return fmt.Errorf("add content to %s error: %s", i.Args.Path, err.Error())

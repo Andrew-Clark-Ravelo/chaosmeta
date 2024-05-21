@@ -96,6 +96,7 @@ func convertToExperimentInstance(experiment *ExperimentGet, status string) *expe
 			Description: experiment.Description,
 			Creator:     experiment.Creator,
 			NamespaceId: experiment.NamespaceID,
+			ClusterId:   experiment.ClusterID,
 			Status:      status,
 		},
 		Labels: getLabelIdsFromLabelGet(experiment.Labels),
@@ -154,7 +155,7 @@ func StartExperiment(experimentID string, creatorName string) error {
 	}
 
 	clusterService := cluster.ClusterService{}
-	_, restConfig, err := clusterService.GetRestConfig(context.Background(), config.DefaultRunOptIns.RunMode.Int())
+	_, restConfig, err := clusterService.GetRestConfig(context.Background(), experimentGet.ClusterID)
 	if err != nil {
 		return err
 	}
@@ -174,13 +175,7 @@ func StartExperiment(experimentID string, creatorName string) error {
 	return err
 }
 
-func getInjectMessage(node v1alpha1.NodeStatus) string {
-	clusterService := cluster.ClusterService{}
-	_, restConfig, err := clusterService.GetRestConfig(context.Background(), config.DefaultRunOptIns.RunMode.Int())
-	if err != nil {
-		log.Error(err)
-		return ""
-	}
+func getInjectMessage(node v1alpha1.NodeStatus, restConfig *rest.Config) string {
 	injectType, isInject := getInjectSecondField(node.DisplayName)
 	var statusData []byte
 	if !isInject {
@@ -239,7 +234,7 @@ func injectRecoverByArgo(node v1alpha1.NodeStatus, experimentStatus *string, res
 		if node.Phase == v1alpha1.NodeFailed || node.Phase == v1alpha1.NodeError {
 			*experimentStatus = string(v1alpha1.WorkflowFailed)
 
-			if err := experimentInstanceModel.UpdateWorkflowNodeInstanceStatus(nodeId, string(node.Phase), getInjectMessage(node)); err != nil {
+			if err := experimentInstanceModel.UpdateWorkflowNodeInstanceStatus(nodeId, string(node.Phase), getInjectMessage(node, restConfig)); err != nil {
 				log.Error(err)
 			}
 			return err
@@ -264,13 +259,13 @@ func injectRecoverByArgo(node v1alpha1.NodeStatus, experimentStatus *string, res
 				return err
 			}
 		}
-		if err := experimentInstanceModel.UpdateWorkflowNodeInstanceStatus(nodeId, WorkflowSucceeded, getInjectMessage(node)); err != nil {
+		if err := experimentInstanceModel.UpdateWorkflowNodeInstanceStatus(nodeId, WorkflowSucceeded, getInjectMessage(node, restConfig)); err != nil {
 			log.Error(err)
 			return err
 		}
 
 		time.AfterFunc(30*time.Second, func() {
-			if err := experimentInstanceModel.UpdateWorkflowNodeInstanceMessage(nodeId, getInjectMessage(node)); err != nil {
+			if err := experimentInstanceModel.UpdateWorkflowNodeInstanceMessage(nodeId, getInjectMessage(node, restConfig)); err != nil {
 				log.Error(err)
 			}
 		})
@@ -278,9 +273,9 @@ func injectRecoverByArgo(node v1alpha1.NodeStatus, experimentStatus *string, res
 	return nil
 }
 
-func stopExperiment(experimentInstanceID string, experimentStatus *string, tolerateFailure bool) error {
+func stopExperiment(clusterId int, experimentInstanceID string, experimentStatus *string, tolerateFailure bool) error {
 	clusterService := cluster.ClusterService{}
-	_, restConfig, err := clusterService.GetRestConfig(context.Background(), config.DefaultRunOptIns.RunMode.Int())
+	_, restConfig, err := clusterService.GetRestConfig(context.Background(), clusterId)
 	if err != nil {
 		return err
 	}
@@ -324,7 +319,14 @@ func StopExperiment(experimentInstanceID string, tolerateFailure bool) error {
 		return fmt.Errorf("can not find experimentInstance")
 	}
 	var experimentStatus = WorkflowSucceeded
-	if err := stopExperiment(experimentInstanceID, &experimentStatus, tolerateFailure); err != nil {
+	experimentService := ExperimentService{}
+
+	experimentGet, err := experimentService.GetExperimentByUUID(experimentInstanceInfo.ExperimentUUID)
+	if err != nil || experimentGet == nil {
+		return fmt.Errorf("error %v", err)
+	}
+
+	if err := stopExperiment(experimentGet.ClusterID, experimentInstanceID, &experimentStatus, tolerateFailure); err != nil {
 		log.Error("stopExperiment error:", err)
 	}
 	experimentInstanceInfo.Status = experimentStatus
@@ -427,7 +429,8 @@ func (e *ExperimentRoutine) DealCronExperiment() {
 	}
 }
 
-func (e *ExperimentRoutine) syncExperimentStatusByWorkflow(workflow v1alpha1.Workflow) error {
+func (e *ExperimentRoutine) syncExperimentStatusByWorkflow(workflow v1alpha1.Workflow, restConfig *rest.Config) error {
+
 	log.Debug("syncExperimentStatus.Name:", workflow.Name, "workflow.Status", workflow.Status)
 	experimentInstanceId, err := getExperimentInstanceIdFromWorkflowName(workflow.Name)
 	if err != nil {
@@ -451,8 +454,8 @@ func (e *ExperimentRoutine) syncExperimentStatusByWorkflow(workflow v1alpha1.Wor
 				return StopExperiment(experimentInstanceId, true)
 			}
 
-			getInjectMessage(node)
-			if err := experimentInstanceModel.UpdateWorkflowNodeInstanceStatus(nodeId, string(node.Phase), getInjectMessage(node)); err != nil {
+			getInjectMessage(node, restConfig)
+			if err := experimentInstanceModel.UpdateWorkflowNodeInstanceStatus(nodeId, string(node.Phase), getInjectMessage(node, restConfig)); err != nil {
 				log.Error("UpdateWorkflowNodeInstanceStatus", err)
 				continue
 			}
@@ -461,11 +464,11 @@ func (e *ExperimentRoutine) syncExperimentStatusByWorkflow(workflow v1alpha1.Wor
 	return nil
 }
 
-func (e *ExperimentRoutine) SyncExperimentsStatus() {
+func (e *ExperimentRoutine) SyncExperimentsStatusForOneCluster(clusterId int) {
 	clusterService := cluster.ClusterService{}
-	_, restConfig, err := clusterService.GetRestConfig(context.Background(), config.DefaultRunOptIns.RunMode.Int())
+	_, restConfig, err := clusterService.GetRestConfig(context.Background(), clusterId)
 	if err != nil {
-		log.Error(err)
+		// log.Error("clusterId", clusterId, err)
 		return
 	}
 
@@ -480,7 +483,7 @@ func (e *ExperimentRoutine) SyncExperimentsStatus() {
 	go func() {
 		for _, pendingArgo := range pendingArgos {
 			go func(argo v1alpha1.Workflow) {
-				if err := e.syncExperimentStatusByWorkflow(argo); err != nil {
+				if err := e.syncExperimentStatusByWorkflow(argo, restConfig); err != nil {
 					errCh <- err
 				}
 			}(*pendingArgo)
@@ -490,7 +493,7 @@ func (e *ExperimentRoutine) SyncExperimentsStatus() {
 	go func() {
 		for _, finishArgo := range finishArgos {
 			go func(argo v1alpha1.Workflow) {
-				if err := e.syncExperimentStatusByWorkflow(argo); err != nil {
+				if err := e.syncExperimentStatusByWorkflow(argo, restConfig); err != nil {
 					errCh <- err
 				}
 				if err := argoWorkFlowCtl.Delete(argo.Name); err != nil {
@@ -515,6 +518,32 @@ func (e *ExperimentRoutine) SyncExperimentsStatus() {
 	}
 
 	close(doneCh)
+}
+
+func (e *ExperimentRoutine) SyncExperimentsStatus() {
+	clusterService := cluster.ClusterService{}
+	// 遍历所有cluster
+	curPage := 1
+	pageSize := 10
+	total, clusterList, err := clusterService.GetList(context.Background(), "", "", 1, pageSize)
+	if err != nil {
+		return
+	}
+	//incluster
+	e.SyncExperimentsStatusForOneCluster(0)
+	for _, clusterCur := range clusterList {
+		e.SyncExperimentsStatusForOneCluster(clusterCur.ID)
+	}
+	for page := curPage + 1; page <= (int(total)+pageSize-1)/pageSize; page++ {
+		total, clusterList, err = clusterService.GetList(context.Background(), "", "", 1, pageSize)
+		if err != nil {
+			return
+		}
+		for _, clusterCur := range clusterList {
+			e.SyncExperimentsStatusForOneCluster(clusterCur.ID)
+		}
+	}
+
 }
 
 func (e *ExperimentRoutine) DeleteExecutedInstanceCR() {

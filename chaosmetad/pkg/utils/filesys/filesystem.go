@@ -22,6 +22,7 @@ import (
 	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/utils/cmdexec"
 	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/utils/namespace"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -49,7 +50,7 @@ func getPathExistCmd(path string) string {
 func getAppendFileCmd(flag, path, content string, count, interval int) string {
 	//return fmt.Sprintf("echo -e \"%s\" >> %s", content, path)
 	//return fmt.Sprintf("echo -e '%s' >> %s", content, path)
-	return fmt.Sprintf("echo %s && for i in {1..%d}; do sleep %d && test -f %s && echo -e '%s' >> %s; done", flag, count, interval, path, content, path)
+	return fmt.Sprintf("echo %s && for i in {1..%d}; do sleep %d && test -f %s && echo -en '%s' >> %s; done", flag, count, interval, path, content, path)
 }
 
 func getOverWriteFileCmd(path, content string) string {
@@ -154,6 +155,11 @@ func CheckDir(ctx context.Context, cr, cId string, dir string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+func GetDirName(dir string) string {
+	re, _ := filepath.Split(dir)
+	return re
 }
 
 func CheckDirLocal(dir string) error {

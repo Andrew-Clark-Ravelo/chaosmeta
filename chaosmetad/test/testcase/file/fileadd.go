@@ -18,6 +18,7 @@ package file
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/utils"
 	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/utils/cmdexec"
@@ -70,12 +71,24 @@ func GetFileAddTest() []common.TestCase {
 			Error: true,
 		},
 		{
-			Args: fmt.Sprintf("-p %s -c \"%s\" -P %s", fileAddFileName, fileAddContent, fileAddPerm),
+			Args: fmt.Sprintf("-p %s -c \"%s\" -P %s", fileAddFileName, base64.StdEncoding.EncodeToString([]byte(fileAddContent)), fileAddPerm),
 			Check: func() error {
 				return checkFileAdd(fileAddFileName, fileAddPerm, fileAddContent)
 			},
 			CheckRecover: func() error {
 				return checkFileNotExist(fileAddFileName)
+			},
+		},
+		{
+			Args: fmt.Sprintf("-p %s -c \"%s\" -P %s -f", "/notexist/abc/efg/temp.log", base64.StdEncoding.EncodeToString([]byte(fileAddContent)), fileAddPerm),
+			Check: func() error {
+				return checkFileAdd("/notexist/abc/efg/temp.log", fileAddPerm, fileAddContent)
+			},
+			CheckRecover: func() error {
+				return checkFileNotExist("/notexist/abc/efg/temp.log")
+			},
+			PostProcessor: func() error {
+				return os.RemoveAll("/notexist")
 			},
 		},
 		{
@@ -89,6 +102,7 @@ func GetFileAddTest() []common.TestCase {
 			PostProcessor: func() error {
 				return os.RemoveAll("/notexist")
 			},
+			Error: true,
 		},
 	}
 

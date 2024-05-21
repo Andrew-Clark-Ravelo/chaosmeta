@@ -18,7 +18,6 @@ export default defineConfig({
   routes,
   npmClient: 'yarn',
   styledComponents: {},
-  
   locale: {
     // 默认使用 src/locales/zh-CN.ts 作为多语言文件
     default: 'zh-CN',

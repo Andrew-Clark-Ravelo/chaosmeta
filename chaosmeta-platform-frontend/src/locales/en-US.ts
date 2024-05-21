@@ -13,6 +13,8 @@ const routeMenu = {
   'menu.globalSettings': 'global settings',
   'menu.globalSettings.account': 'account management',
   'menu.globalSettings.space': 'space management',
+  'menu.globalSettings.agent': 'agent management',
+  'menu.globalSettings.cluster': 'cluster management',
 };
 
 // 空间概览
@@ -340,6 +342,41 @@ const spaceManagement = {
   'spaceManagement.experimentCount': 'number of experiments',
 };
 
+/** 集群管理 */
+const clusterManagement = {
+  'clusterManagement.title': 'Cluster management',
+  belongingCluster: 'Belonging cluster',
+  clusterName: 'Cluster name',
+  createTime: 'Create time',
+  actions: 'Actions',
+  update: 'Update',
+  delete: 'Delete',
+  cancel: 'Cancel',
+  confirm: 'OK',
+  inputPlaceholder: 'Plase enter',
+  'clusterManagement.membershipInfo': 'Cluster membership information',
+  'clusterManagement.membershipInfo.placeholder': 'Please select the belonging cluster',
+  'clusterManagement.membershipInfo.modified': 'Modifying the cluster may cause instances to become invalid. Please reconfirm',
+  'clusterManagement.addCluster': 'Add cluster',
+  'clusterManagement.updateCluster': 'Update Cluster',
+  'clusterManagement.clusterList': 'Cluster list',
+  'clusterManagement.deleteConfirm': 'Are you sure you want to delete the current cluster',
+  'clusterManagement.deleteSuccess': 'The cluster has been deleted successfully',
+  'clusterManagement.addSuccess': 'You have successfully added the cluster',
+  'clusterManagement.updateSuccess': 'You have successfully added the cluster',
+  'clusterManagement.clusterConfigFile': 'Cluster configuration file',
+  'clusterManagement.clusterConfigFileEmptyWaring': 'Please fill in the cluster configuration information',
+  'clusterManagement.clusterConfigFilePlaceholder': 'Please copy the configuration file path of the target Kubernetes (K8s) cluster, which is generally "/home/.kube/config", or you can directly upload the corresponding file',
+}
+
+/** 文件文本上传组件 */
+const inputWithFileDragger = {
+  'inputWithFileDragger.draggerPlaceholder': 'Click or drag a .txt file to this area to upload',
+  'inputWithFileDragger.fileTypeError': 'Only files in the specified format are supported for upload. Please select again',
+  'inputWithFileDragger.fileNameError': 'The filename contains special characters',
+  'inputWithFileDragger.uploadAgain': 'Please upload again',
+}
+
 export default {
   ...routeMenu,
   ...spaceOverview,
@@ -358,4 +395,6 @@ export default {
   ...login,
   ...account,
   ...spaceManagement,
+  ...clusterManagement,
+  ...inputWithFileDragger,
 };

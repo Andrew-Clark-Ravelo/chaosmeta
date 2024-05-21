@@ -19,10 +19,12 @@ export const Container = styled.div`
         margin: 0 4px;
       }
     }
+    .ant-tabs-tab {
+      min-width: 120px;
+      justify-content: center;
+    }
     .ant-tabs-tab-active {
-      background-image: url('https://mdn.alipayobjects.com/huamei_d3kmvr/afts/img/A*ZsDqQJsUDgMAAAAAAAAAAAAADmKmAQ/original');
-      background-size: 100% 38px;
-      background-repeat: no-repeat;
+      background: #EBF0F6;
     }
     .ant-tabs-tab-remove {
       margin: 0;
@@ -104,7 +106,6 @@ export const InstallAgentContainer = styled.div`
       border-radius: 6px;
       overflow-y: hidden;
       .header {
-        /* display: flex; */
         height: 46px;
         line-height: 46px;
         text-align: right;

@@ -1,5 +1,6 @@
-import { envType } from '@/constants';
 import request from '@/utils/request';
+// 配置信息
+import { currentConfig } from '@/constants';
 
 /**
  * 获取namespace列表
@@ -15,7 +16,7 @@ export async function queryNamespaceList(
   options?: { [key: string]: any },
 ) {
   return request<any>(
-    `/chaosmeta/api/v1/kubernetes/cluster/${envType}/namespaces`,
+    `/chaosmeta/api/v1/kubernetes/cluster/${currentConfig.clusterId}/namespaces`,
     {
       method: 'GET',
       params,
@@ -39,7 +40,7 @@ export async function queryPodNameList(
   options?: { [key: string]: any },
 ) {
   return request<any>(
-    `/chaosmeta/api/v1/kubernetes/cluster/${envType}/namespace/${params?.namespace}/pods`,
+    `/chaosmeta/api/v1/kubernetes/cluster/${currentConfig.clusterId}/namespace/${params?.namespace}/pods`,
     {
       method: 'GET',
       params,
@@ -62,7 +63,7 @@ export async function queryNodeNameList(
   },
   options?: { [key: string]: any },
 ) {
-  return request<any>(`/chaosmeta/api/v1/kubernetes/cluster/${envType}/nodes`, {
+  return request<any>(`/chaosmeta/api/v1/kubernetes/cluster/${currentConfig.clusterId}/nodes`, {
     method: 'GET',
     params,
     ...(options || {}),
@@ -107,7 +108,7 @@ export async function queryDeploymentNameList(
   options?: { [key: string]: any },
 ) {
   return request<any>(
-    `/chaosmeta/api/v1/kubernetes/cluster/${envType}/namespace/${params?.namespace}/deployments`,
+    `/chaosmeta/api/v1/kubernetes/cluster/${currentConfig.clusterId}/namespace/${params?.namespace}/deployments`,
     {
       method: 'GET',
       params,
@@ -132,7 +133,7 @@ export async function queryContainersNameList(
   options?: { [key: string]: any },
 ) {
   return request<any>(
-    `/chaosmeta/api/v1/kubernetes/cluster/${envType}/namespace/${namespace}//containers`,
+    `/chaosmeta/api/v1/kubernetes/cluster/${currentConfig.clusterId}/namespace/${namespace}//containers`,
     {
       method: 'POST',
       data: data || {},

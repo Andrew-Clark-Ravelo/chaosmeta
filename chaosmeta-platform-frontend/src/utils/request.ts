@@ -56,7 +56,7 @@ export async function updateToken(
 }
 
 /**
- * 基于umi-request 封装一层，目的为了处理401刷新token问题
+ * 基于 umi-request 封装一层，目的为了处理 401 刷新 token 的问题
  * @param url
  * @param options
  * @returns
@@ -65,20 +65,20 @@ const request = async <T>(
   url: string,
   options: any,
 ): Promise<AxiosResponse<T, any>> => {
-  // 基于umi/max的request
+  // 基于 umi/max 的 request
   const res: any = await requestUmi(url, options);
-  // 如果当前返回值为401时，则表示需要更新token或者token不存在
+  // 如果当前返回值为 401 时，表示需要更新 token 或者 token 不存在
   if (res.code === 401) {
     let token = cookie.getToken('TOKEN');
-    // token不存在时跳转到登录页面
+    // token 不存在时跳转到登录页面
     if (!token) {
       message.destroy();
       message.info(loginTextMap[getLocale()]?.notLogin);
       history.push('/login');
     } else {
-      // 调取更新token的接口
+      // 调取更新 token 的接口
       const result = await updateToken();
-      // 如果更新token的接口返回最新的token之后，重新发起请求
+      // 如果更新 token 的接口返回最新的 token 之后，重新发起请求
       if (result?.data?.token) {
         return await requestUmi(url, options);
       }

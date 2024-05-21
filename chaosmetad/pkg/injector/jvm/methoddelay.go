@@ -18,17 +18,17 @@ package jvm
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/spf13/cobra"
 	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/injector"
 	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/log"
 	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/utils"
+	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/utils/cmdexec"
 	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/utils/filesys"
+	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/utils/namespace"
 	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/utils/process"
-	"os"
-	"strconv"
 )
 
 func init() {
@@ -42,9 +42,11 @@ type MethodDelayInjector struct {
 }
 
 type MethodDelayArgs struct {
-	Pid        int    `json:"pid,omitempty"`
-	Key        string `json:"key,omitempty"`
-	MethodList string `json:"method"` // class@method@3000,
+	Pid       int    `json:"pid,omitempty"`
+	Key       string `json:"key,omitempty"`
+	Method    string `json:"method"`
+	LatencyMs int    `json:"latency"`
+	Position  string `json:"position"`
 }
 
 type MethodDelayRuntime struct {
@@ -62,7 +64,9 @@ func (i *MethodDelayInjector) GetRuntime() interface{} {
 func (i *MethodDelayInjector) SetOption(cmd *cobra.Command) {
 	cmd.Flags().IntVarP(&i.Args.Pid, "pid", "p", 0, "target process's pid")
 	cmd.Flags().StringVarP(&i.Args.Key, "key", "k", "", "the key used to grep to get target process, the effect is equivalent to \"ps -ef | grep [key]\". if \"pid\" provided, \"key\" will be ignored")
-	cmd.Flags().StringVarP(&i.Args.MethodList, "method", "m", "", "target method of the process, format: \"class1@method1@delay_ms,class1@method2@delay_ms\", eg: \"com.test.Client@sayHello@3000\"")
+	cmd.Flags().StringVarP(&i.Args.Method, "method", "m", "", "target method of the process, format: org.example.Handler.getResponse(int), must in base64 format")
+	cmd.Flags().IntVarP(&i.Args.LatencyMs, "latency", "l", 0, "latency of method called, unit is ms")
+	cmd.Flags().StringVarP(&i.Args.Position, "position", "P", PositionBefore, fmt.Sprintf("delay point of target method, support: %s, %s, %s", PositionBefore, PositionReturn, PositionThrow))
 }
 
 func (i *MethodDelayInjector) Validator(ctx context.Context) error {
@@ -70,32 +74,37 @@ func (i *MethodDelayInjector) Validator(ctx context.Context) error {
 		return err
 	}
 
-	pidList, err := process.GetPidListByPidOrKeyInContainer(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, i.Args.Pid, i.Args.Key)
+	_, err := process.GetPidListByPidOrKeyInContainer(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, i.Args.Pid, i.Args.Key)
 	if err != nil {
 		return fmt.Errorf("get target process's pid error: %s", err.Error())
 	}
 
-	for _, pid := range pidList {
-		ifExist, err := filesys.ExistFile(getRuleFile(i.Info.ContainerId, pid))
-		if err != nil {
-			return fmt.Errorf("check file of process[%d] exist error: %s", pid, err.Error())
-		}
-
-		if ifExist {
-			return fmt.Errorf("has jvm experiment running in process[%d]", pid)
-		}
+	if i.Args.Method == "" {
+		return fmt.Errorf("\"method\" is empty")
 	}
 
-	_, err = getMethodList(i.Args.MethodList, FaultMethodDelay)
+	_, err = base64.StdEncoding.DecodeString(i.Args.Method)
 	if err != nil {
-		return fmt.Errorf("\"method\" is invalid: %s", err.Error())
+		return fmt.Errorf("\"method must in base64 format\"")
 	}
 
-	if err := checkJavaCmd(ctx, i.Info.ContainerRuntime, i.Info.ContainerId); err != nil {
-		return fmt.Errorf("check java exec error: %s", err.Error())
+	if i.Args.LatencyMs <= 0 {
+		return fmt.Errorf("\"latency\" must larger than 0")
+	}
+
+	if i.Args.Position != PositionBefore && i.Args.Position != PositionReturn && i.Args.Position != PositionThrow {
+		return fmt.Errorf("\"position\" only support: %s, %s, %s", PositionBefore, PositionReturn, PositionThrow)
 	}
 
 	return nil
+}
+
+func (i *MethodDelayInjector) getJVMPackagePath() string {
+	if i.Info.ContainerRuntime == "" {
+		return utils.GetToolPath(JVMPackage)
+	} else {
+		return fmt.Sprintf("%s/%s", ContainerJVMDir, JVMPackage)
+	}
 }
 
 func (i *MethodDelayInjector) Inject(ctx context.Context) error {
@@ -110,23 +119,51 @@ func (i *MethodDelayInjector) Inject(ctx context.Context) error {
 	// save target
 	i.Runtime.AttackPids = pidList
 
+	dstDir := i.getJVMPackagePath()
+	isExist, err := filesys.CheckDir(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, dstDir)
+	if err != nil {
+		return fmt.Errorf("check dir error: %s", err.Error())
+	}
+
+	if !isExist {
+		if i.Info.ContainerRuntime != "" {
+			src := fmt.Sprintf("%s.tar.gz", utils.GetToolPath(JVMPackage))
+			dst := fmt.Sprintf("%s.tar.gz", dstDir)
+			if err := cmdexec.CpContainerFile(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, src, dst); err != nil {
+				return fmt.Errorf("cp jvm tool file[%s] to container[%s] [%s] error: %s", src, i.Info.ContainerId, dst, err.Error())
+			}
+		}
+
+		tarCmd := fmt.Sprintf("tar vzxf %s.tar.gz -C %s", dstDir, filesys.GetDirName(dstDir))
+		_, err := cmdexec.ExecCommonWithNS(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, tarCmd, []string{namespace.MNT})
+		if err != nil {
+			return fmt.Errorf("tar JVM tool error: %s", err.Error())
+		}
+	}
+
+	methodByte, _ := base64.StdEncoding.DecodeString(i.Args.Method)
+	faultParam := &MethodDelayFaultParam{
+		Method:   string(methodByte),
+		Latency:  i.Args.LatencyMs,
+		Position: i.Args.Position,
+	}
+
+	paramByte, err := json.Marshal(faultParam)
+	if err != nil {
+		return fmt.Errorf("fault param is not a json: %s", err.Error())
+	}
+
 	var timeout int64
 	if i.Info.Timeout != "" {
 		timeout, _ = utils.GetTimeSecond(i.Info.Timeout)
 	}
 
-	methodListMap, _ := getMethodList(i.Args.MethodList, FaultMethodDelay)
-	ruleBytes, err := json.Marshal(getRuleConfig(methodListMap, timeout))
-	if err != nil {
-		return fmt.Errorf("get rule file bytes error: %s", err.Error())
-	}
-
-	logger.Debugf("rule json: %s", string(ruleBytes))
-	err = doInject(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, pidList, ruleBytes)
-	if err != nil {
-		// undo recover
-		if rErr := i.Recover(ctx); rErr != nil {
-			logger.Warnf("undo error: %s", rErr.Error())
+	for _, unitPid := range pidList {
+		execCmd := fmt.Sprintf("%s/%s inject %d %s %s %s '%s' %d", dstDir, JVMExecutor, unitPid, i.Info.Uid, FaultTypeMethod, FaultActionMethodDelay, string(paramByte), timeout)
+		_, err := cmdexec.ExecCommonWithNS(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, execCmd, []string{namespace.MNT, namespace.ENV, namespace.PID, namespace.IPC, namespace.UTS})
+		if err != nil {
+			i.Recover(ctx)
+			return fmt.Errorf("exec for %d error: %s", unitPid, err.Error())
 		}
 	}
 
@@ -139,48 +176,16 @@ func (i *MethodDelayInjector) Recover(ctx context.Context) error {
 	}
 
 	logger := log.GetLogger(ctx)
-	var errMsg string
-	for _, pid := range i.Runtime.AttackPids {
-		targetRule := getRuleFile(i.Info.ContainerId, pid)
-		logger.Debugf("check file: %s", targetRule)
-		ifExist, err := filesys.ExistFile(targetRule)
+	dstDir := i.getJVMPackagePath()
+	pidList := i.Runtime.AttackPids
+	// recover [pid] [injectId]
+	for _, unitPid := range pidList {
+		execCmd := fmt.Sprintf("%s/%s recover %d %s", dstDir, JVMExecutor, unitPid, i.Info.Uid)
+		_, err := cmdexec.ExecCommonWithNS(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, execCmd, []string{namespace.MNT, namespace.ENV, namespace.PID, namespace.IPC, namespace.UTS})
 		if err != nil {
-			errMsg = fmt.Sprintf("%s. %s", errMsg, fmt.Sprintf("check file[%s] exist error: %s", targetRule, err.Error()))
-			continue
+			logger.Errorf("exec for %d error: %s", unitPid, err.Error())
 		}
-
-		if ifExist {
-			if i.Info.ContainerRuntime != "" {
-				if err := filesys.RemoveFile(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, getContainerRuleFile(pid)); err != nil {
-					errMsg = fmt.Sprintf("%s. %s", errMsg, fmt.Sprintf("remove rule[%s] error: %s", targetRule, err.Error()))
-					continue
-				}
-			}
-			if err := os.RemoveAll(targetRule); err != nil {
-				errMsg = fmt.Sprintf("%s. %s", errMsg, fmt.Sprintf("remove rule[%s] error: %s", targetRule, err.Error()))
-			}
-		}
-	}
-
-	if errMsg != "" {
-		return errors.New(errMsg)
 	}
 
 	return nil
-}
-
-func getMethodDelayRule(methodName, delayMsStr string) (*MethodJVMRule, error) {
-	delayMs, err := strconv.Atoi(delayMsStr)
-	if err != nil {
-		return nil, fmt.Errorf("is not a valid delay ms: %s", err.Error())
-	}
-	if delayMs <= 0 {
-		return nil, fmt.Errorf("delay ms must larger than 0")
-	}
-
-	return &MethodJVMRule{
-		Method:  methodName,
-		Fault:   InsertBeforeInject,
-		Content: fmt.Sprintf("try {Thread.sleep((long)%d);} catch (Exception e) {System.out.println(\"ChaosMeta Delay Inject Failed: \" + e.getMessage());}", delayMs),
-	}, nil
 }

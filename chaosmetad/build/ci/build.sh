@@ -27,7 +27,7 @@ fi
 
 # base info
 BUILD_NAME="chaosmetad"
-VERSION="0.5.1"
+VERSION="1.1.0"
 BUILD_DATE=$(date "+%Y-%m-%d %H:%M:%S")
 
 # env var
@@ -51,7 +51,7 @@ JVM_AGENT="ChaosMetaJVMAgent"
 JVM_ATTACHER="ChaosMetaJVMAttacher"
 JVM_METHOD_RULE="ChaosMetaJVMMethodRule"
 JVM_TRANSFORMER="ChaosMetaClassFileTransformer"
-
+JVM_PACKAGE="chaosmeta-jvm-1.1.0.tar.gz"
 
 DISK_EXEC="chaosmeta_diskfill"
 TOOL_EXECNS="chaosmeta_execns"
@@ -108,14 +108,15 @@ CGO_ENABLED=1 GOOS=${OS_NAME} GOARCH=${ARCH_NAME} ${GO_TOOL} build -o ${PACKAGE_
 #CGO_ENABLED=1 GOOS=${OS_NAME} GOARCH=${ARCH_NAME} ${GO_TOOL} build -o ${PACKAGE_DIR}/${OS_NAME}/tools/${MEM_EXEC} ${EXEC_DIR}/mem/${MEM_EXEC}.go
 # CGO_ENABLED=1 GOOS=${OS_NAME} GOARCH=${ARCH_NAME} ${GO_TOOL} build -o ${PACKAGE_DIR}/${OS_NAME}/tools/${TOOL_EXECNS} ${PROJECT_DIR}/tools/${TOOL_EXECNS}.go
 
-javac -d ${PACKAGE_DIR}/${OS_NAME}/tools ${PROJECT_DIR}/tools/jvm/${JVM_ATTACHER}.java -cp ${PROJECT_DIR}/tools/jvm/lib/tools.jar:${PACKAGE_DIR}/${OS_NAME}/tools
-javac -d ${PACKAGE_DIR}/${OS_NAME}/tools ${PROJECT_DIR}/tools/jvm/${JVM_METHOD_RULE}.java -cp ${PROJECT_DIR}/tools/jvm/lib/json-20190722.jar:${PACKAGE_DIR}/${OS_NAME}/tools
-javac -d ${PACKAGE_DIR}/${OS_NAME}/tools ${PROJECT_DIR}/tools/jvm/${JVM_TRANSFORMER}.java -cp ${PROJECT_DIR}/tools/jvm/lib/tools.jar:${PROJECT_DIR}/tools/jvm/lib/javassist.jar:${PACKAGE_DIR}/${OS_NAME}/tools
-javac -d ${PACKAGE_DIR}/${OS_NAME}/tools ${PROJECT_DIR}/tools/jvm/${JVM_AGENT}.java -cp ${PROJECT_DIR}/tools/jvm/lib/tools.jar:${PROJECT_DIR}/tools/jvm/lib/json-20190722.jar:${PACKAGE_DIR}/${OS_NAME}/tools
-cp ${PROJECT_DIR}/tools/jvm/MANIFEST.MF ${PACKAGE_DIR}/${OS_NAME}/tools
-cp ${PROJECT_DIR}/tools/jvm/lib/tools.jar ${PACKAGE_DIR}/${OS_NAME}/tools
-cp ${PROJECT_DIR}/tools/jvm/lib/javassist.jar ${PACKAGE_DIR}/${OS_NAME}/tools
-cp ${PROJECT_DIR}/tools/jvm/lib/json-20190722.jar ${PACKAGE_DIR}/${OS_NAME}/tools
-cd ${PACKAGE_DIR}/${OS_NAME}/tools
-jar cvfm ${JVM_AGENT}.jar MANIFEST.MF ${JVM_AGENT}.class ${JVM_TRANSFORMER}.class ${JVM_METHOD_RULE}.class
+#javac -d ${PACKAGE_DIR}/${OS_NAME}/tools ${PROJECT_DIR}/tools/jvm/${JVM_ATTACHER}.java -cp ${PROJECT_DIR}/tools/jvm/lib/tools.jar:${PACKAGE_DIR}/${OS_NAME}/tools
+#javac -d ${PACKAGE_DIR}/${OS_NAME}/tools ${PROJECT_DIR}/tools/jvm/${JVM_METHOD_RULE}.java -cp ${PROJECT_DIR}/tools/jvm/lib/json-20190722.jar:${PACKAGE_DIR}/${OS_NAME}/tools
+#javac -d ${PACKAGE_DIR}/${OS_NAME}/tools ${PROJECT_DIR}/tools/jvm/${JVM_TRANSFORMER}.java -cp ${PROJECT_DIR}/tools/jvm/lib/tools.jar:${PROJECT_DIR}/tools/jvm/lib/javassist.jar:${PACKAGE_DIR}/${OS_NAME}/tools
+#javac -d ${PACKAGE_DIR}/${OS_NAME}/tools ${PROJECT_DIR}/tools/jvm/${JVM_AGENT}.java -cp ${PROJECT_DIR}/tools/jvm/lib/tools.jar:${PROJECT_DIR}/tools/jvm/lib/json-20190722.jar:${PACKAGE_DIR}/${OS_NAME}/tools
+#cp ${PROJECT_DIR}/tools/jvm/MANIFEST.MF ${PACKAGE_DIR}/${OS_NAME}/tools
+#cp ${PROJECT_DIR}/tools/jvm/lib/tools.jar ${PACKAGE_DIR}/${OS_NAME}/tools
+#cp ${PROJECT_DIR}/tools/jvm/lib/javassist.jar ${PACKAGE_DIR}/${OS_NAME}/tools
+#cp ${PROJECT_DIR}/tools/jvm/lib/json-20190722.jar ${PACKAGE_DIR}/${OS_NAME}/tools
+#cd ${PACKAGE_DIR}/${OS_NAME}/tools
+#jar cvfm ${JVM_AGENT}.jar MANIFEST.MF ${JVM_AGENT}.class ${JVM_TRANSFORMER}.class ${JVM_METHOD_RULE}.class
+cp ${PROJECT_DIR}/tools/${JVM_PACKAGE} ${PACKAGE_DIR}/${OS_NAME}/tools
 cp -R ${PACKAGE_DIR}/${OS_NAME}/tools ${OUTPUT_DIR}/

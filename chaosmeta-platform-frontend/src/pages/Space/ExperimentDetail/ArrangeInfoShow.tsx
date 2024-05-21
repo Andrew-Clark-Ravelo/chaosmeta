@@ -27,6 +27,8 @@ import { Form, Space, Spin } from 'antd';
 import { useEffect, useState } from 'react';
 import DynamicFormRender from '../AddExperiment/components/DynamicFormRender';
 import { ArrangeWrap, DroppableCol, DroppableRow } from './style';
+import AsyncRender from '@/components/AsyncRender';
+import { queryClusterList } from '@/services/chaosmeta/ClusterController';
 
 interface IProps {
   arrangeList: any[];
@@ -35,6 +37,8 @@ interface IProps {
   isResult?: boolean;
   getExperimentArrangeNodeDetail?: any;
   setCurNodeDetail?: any;
+  /** 实验详情信息 */
+  resultDetail?: Record<string, any>;
 }
 const ArrangeInfoShow: React.FC<IProps> = (props) => {
   const {
@@ -43,6 +47,7 @@ const ArrangeInfoShow: React.FC<IProps> = (props) => {
     isResult,
     getExperimentArrangeNodeDetail,
     setCurNodeDetail,
+    resultDetail = {},
   } = props;
   // 当前占比
   const [curProportion, setCurProportion] = useState<number>(100);
@@ -272,11 +277,10 @@ const ArrangeInfoShow: React.FC<IProps> = (props) => {
                   $nodeStutas={isResult && el?.status}
                   // 减去外边距的2px，避免子元素多时宽度偏差过大
                   style={{
-                    width: `${
-                      curDuration *
-                        (scaleStepMap[curProportion]?.widthSecond || 3) -
+                    width: `${curDuration *
+                      (scaleStepMap[curProportion]?.widthSecond || 3) -
                       2
-                    }px`,
+                      }px`,
                     // 最小宽度为1s对应的px
                     minWidth: `${scaleStepMap[curProportion]?.widthSecond}px`,
                     flexShrink: 0,
@@ -289,7 +293,7 @@ const ArrangeInfoShow: React.FC<IProps> = (props) => {
                   <div className="item">
                     {curDuration *
                       (scaleStepMap[curProportion]?.widthSecond || 3) >
-                    30 ? (
+                      30 ? (
                       <div>
                         <div
                           className="title ellipsis"
@@ -509,6 +513,40 @@ const ArrangeInfoShow: React.FC<IProps> = (props) => {
             <Spin spinning={getFaultNodeFields?.loading}>
               <Form form={configForm}>
                 <div className="subtitle">
+                  {intl.formatMessage({ id: 'belongingCluster' })}
+                </div>
+                <Form.Item
+                  label={intl.formatMessage({ id: 'clusterName' })}
+                  name='cluster_id'
+                >
+                  {/* 这里直接展示当前实验所属的集群信息 */}
+                  <AsyncRender
+                    id={resultDetail?.cluster_id}
+                    data={async () => {
+                      try {
+                        const res = await queryClusterList({ page: 1, page_size: 100 });
+      
+                        if (res.data && res.data.clusters instanceof Array) {
+                          return res.data.clusters.map((i: any) => {
+                            return { name: i.name, id: i.id }
+                          });
+                        }
+                        return [];
+                      }
+                      catch {
+                        return [];
+                      }
+                    }}
+                    component={(list) => {
+                      return (
+                        <div>
+                          {list.find((item: any) => item.id === resultDetail?.cluster_id)?.name ?? '--'}
+                        </div>
+                      );
+                    }}
+                  />
+                </Form.Item>
+                <div className="subtitle range">
                   {intl.formatMessage({ id: 'configInfo' })}
                 </div>
                 <Form.Item
@@ -519,12 +557,12 @@ const ArrangeInfoShow: React.FC<IProps> = (props) => {
                 </Form.Item>
                 <Form.Item
                   label={intl.formatMessage({ id: 'nodeType' })}
-                  // name={'exec_type'}
+                // name={'exec_type'}
                 >
                   <ShowText
                     value={
                       (getLocale() === 'en-US' ? nodeTypeMapUS : nodeTypeMap)[
-                        activeCol?.exec_type
+                      activeCol?.exec_type
                       ] || activeCol?.exec_type
                     }
                   />
@@ -542,11 +580,10 @@ const ArrangeInfoShow: React.FC<IProps> = (props) => {
                         {intl.formatMessage({ id: 'commonParameters' })}
                       </div>
                       <Form.Item
-                        label={`${
-                          activeCol?.exec_type === 'wait'
-                            ? intl.formatMessage({ id: 'waitTime' })
-                            : intl.formatMessage({ id: 'duration' })
-                        }`}
+                        label={`${activeCol?.exec_type === 'wait'
+                          ? intl.formatMessage({ id: 'waitTime' })
+                          : intl.formatMessage({ id: 'duration' })
+                          }`}
                         name={'duration'}
                       >
                         <ShowText />

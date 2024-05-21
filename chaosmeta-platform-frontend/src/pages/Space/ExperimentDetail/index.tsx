@@ -213,7 +213,7 @@ const AddExperiment = () => {
               <div className="experiment-title">
                 {intl.formatMessage({ id: 'experimentConfig' })}
               </div>
-              <ArrangeInfoShow arrangeList={arrangeList} />
+              <ArrangeInfoShow arrangeList={arrangeList} resultDetail={baseInfo} />
             </div>
           </div>
         </Spin>

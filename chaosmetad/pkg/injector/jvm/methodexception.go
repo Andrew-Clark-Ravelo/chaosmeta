@@ -18,16 +18,17 @@ package jvm
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/spf13/cobra"
 	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/injector"
 	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/log"
 	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/utils"
+	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/utils/cmdexec"
 	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/utils/filesys"
+	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/utils/namespace"
 	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/utils/process"
-	"os"
 )
 
 func init() {
@@ -41,9 +42,12 @@ type MethodExceptionInjector struct {
 }
 
 type MethodExceptionArgs struct {
-	Pid        int    `json:"pid,omitempty"`
-	Key        string `json:"key,omitempty"`
-	MethodList string `json:"method"` // class@method@"ok",
+	Pid       int    `json:"pid,omitempty"`
+	Key       string `json:"key,omitempty"`
+	Method    string `json:"method"`
+	Message   string `json:"message"`
+	Exception string `json:"exception"`
+	Position  string `json:"position"`
 }
 
 type MethodExceptionRuntime struct {
@@ -61,7 +65,10 @@ func (i *MethodExceptionInjector) GetRuntime() interface{} {
 func (i *MethodExceptionInjector) SetOption(cmd *cobra.Command) {
 	cmd.Flags().IntVarP(&i.Args.Pid, "pid", "p", 0, "target process's pid")
 	cmd.Flags().StringVarP(&i.Args.Key, "key", "k", "", "the key used to grep to get target process, the effect is equivalent to \"ps -ef | grep [key]\". if \"pid\" provided, \"key\" will be ignored")
-	cmd.Flags().StringVarP(&i.Args.MethodList, "method", "m", "", "target method of the process, format: \"class1@method1@msg,class1@method2@msg\", eg: com.test.Client@sayHello@error,com.test.Client@sayHello@test")
+	cmd.Flags().StringVarP(&i.Args.Method, "method", "m", "", "target method of the process, format: org.example.Handler.getResponse(int), must in base64 format")
+	cmd.Flags().StringVarP(&i.Args.Message, "message", "M", "", "message of exception, must be base64 format")
+	cmd.Flags().StringVarP(&i.Args.Exception, "exception", "e", "java.lang.Exception", "class of Exception, such as: java.lang.Exception")
+	cmd.Flags().StringVarP(&i.Args.Position, "position", "P", PositionBefore, fmt.Sprintf("delay point of target method, support: %s, %s, %s", PositionBefore, PositionReturn, PositionThrow))
 }
 
 func (i *MethodExceptionInjector) Validator(ctx context.Context) error {
@@ -69,32 +76,37 @@ func (i *MethodExceptionInjector) Validator(ctx context.Context) error {
 		return err
 	}
 
-	pidList, err := process.GetPidListByPidOrKeyInContainer(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, i.Args.Pid, i.Args.Key)
+	_, err := process.GetPidListByPidOrKeyInContainer(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, i.Args.Pid, i.Args.Key)
 	if err != nil {
 		return fmt.Errorf("get target process's pid error: %s", err.Error())
 	}
 
-	for _, pid := range pidList {
-		ifExist, err := filesys.ExistFile(getRuleFile(i.Info.ContainerId, pid))
-		if err != nil {
-			return fmt.Errorf("check file of process[%d] exist error: %s", pid, err.Error())
-		}
-
-		if ifExist {
-			return fmt.Errorf("has jvm experiment running in process[%d]", pid)
-		}
+	if i.Args.Method == "" {
+		return fmt.Errorf("\"method\" is empty")
 	}
 
-	_, err = getMethodList(i.Args.MethodList, FaultMethodException)
+	_, err = base64.StdEncoding.DecodeString(i.Args.Method)
 	if err != nil {
-		return fmt.Errorf("\"method\" is invalid: %s", err.Error())
+		return fmt.Errorf("\"method must in base64 format\"")
 	}
 
-	if err := checkJavaCmd(ctx, i.Info.ContainerRuntime, i.Info.ContainerId); err != nil {
-		return fmt.Errorf("check java exec error: %s", err.Error())
+	if i.Args.Exception == "" {
+		return fmt.Errorf("\"exception\" must provide")
+	}
+
+	if i.Args.Position != PositionBefore && i.Args.Position != PositionReturn && i.Args.Position != PositionThrow {
+		return fmt.Errorf("\"position\" only support: %s, %s, %s", PositionBefore, PositionReturn, PositionThrow)
 	}
 
 	return nil
+}
+
+func (i *MethodExceptionInjector) getJVMPackagePath() string {
+	if i.Info.ContainerRuntime == "" {
+		return utils.GetToolPath(JVMPackage)
+	} else {
+		return fmt.Sprintf("%s/%s", ContainerJVMDir, JVMPackage)
+	}
 }
 
 func (i *MethodExceptionInjector) Inject(ctx context.Context) error {
@@ -109,23 +121,52 @@ func (i *MethodExceptionInjector) Inject(ctx context.Context) error {
 	// save target
 	i.Runtime.AttackPids = pidList
 
+	dstDir := i.getJVMPackagePath()
+	isExist, err := filesys.CheckDir(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, dstDir)
+	if err != nil {
+		return fmt.Errorf("check dir error: %s", err.Error())
+	}
+
+	if !isExist {
+		if i.Info.ContainerRuntime != "" {
+			src := fmt.Sprintf("%s.tar.gz", utils.GetToolPath(JVMPackage))
+			dst := fmt.Sprintf("%s.tar.gz", dstDir)
+			if err := cmdexec.CpContainerFile(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, src, dst); err != nil {
+				return fmt.Errorf("cp jvm tool file[%s] to container[%s] [%s] error: %s", src, i.Info.ContainerId, dst, err.Error())
+			}
+		}
+
+		tarCmd := fmt.Sprintf("tar vzxf %s.tar.gz -C %s", dstDir, filesys.GetDirName(dstDir))
+		_, err := cmdexec.ExecCommonWithNS(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, tarCmd, []string{namespace.MNT})
+		if err != nil {
+			return fmt.Errorf("tar JVM tool error: %s", err.Error())
+		}
+	}
+
+	methodByte, _ := base64.StdEncoding.DecodeString(i.Args.Method)
+	faultParam := &MethodExceptionFaultParam{
+		Method:    string(methodByte),
+		Position:  i.Args.Position,
+		Message:   i.Args.Message,
+		Exception: i.Args.Exception,
+	}
+
+	paramByte, err := json.Marshal(faultParam)
+	if err != nil {
+		return fmt.Errorf("fault param is not a json: %s", err.Error())
+	}
+
 	var timeout int64
 	if i.Info.Timeout != "" {
 		timeout, _ = utils.GetTimeSecond(i.Info.Timeout)
 	}
 
-	methodListMap, _ := getMethodList(i.Args.MethodList, FaultMethodException)
-	ruleBytes, err := json.Marshal(getRuleConfig(methodListMap, timeout))
-	if err != nil {
-		return fmt.Errorf("get rule file bytes error: %s", err.Error())
-	}
-
-	logger.Debugf("rule json: %s", string(ruleBytes))
-	err = doInject(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, pidList, ruleBytes)
-	if err != nil {
-		// undo recover
-		if rErr := i.Recover(ctx); rErr != nil {
-			logger.Warnf("undo error: %s", rErr.Error())
+	for _, unitPid := range pidList {
+		execCmd := fmt.Sprintf("%s/%s inject %d %s %s %s '%s' %d", dstDir, JVMExecutor, unitPid, i.Info.Uid, FaultTypeMethod, FaultActionMethodException, string(paramByte), timeout)
+		_, err := cmdexec.ExecCommonWithNS(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, execCmd, []string{namespace.MNT, namespace.ENV, namespace.PID, namespace.IPC, namespace.UTS})
+		if err != nil {
+			i.Recover(ctx)
+			return fmt.Errorf("exec for %d error: %s", unitPid, err.Error())
 		}
 	}
 
@@ -138,41 +179,16 @@ func (i *MethodExceptionInjector) Recover(ctx context.Context) error {
 	}
 
 	logger := log.GetLogger(ctx)
-	var errMsg string
-	for _, pid := range i.Runtime.AttackPids {
-		targetRule := getRuleFile(i.Info.ContainerId, pid)
-		logger.Debugf("check file: %s", targetRule)
-		ifExist, err := filesys.ExistFile(targetRule)
+	dstDir := i.getJVMPackagePath()
+	pidList := i.Runtime.AttackPids
+	// recover [pid] [injectId]
+	for _, unitPid := range pidList {
+		execCmd := fmt.Sprintf("%s/%s recover %d %s", dstDir, JVMExecutor, unitPid, i.Info.Uid)
+		_, err := cmdexec.ExecCommonWithNS(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, execCmd, []string{namespace.MNT, namespace.ENV, namespace.PID, namespace.IPC, namespace.UTS})
 		if err != nil {
-			errMsg = fmt.Sprintf("%s. %s", errMsg, fmt.Sprintf("check file[%s] exist error: %s", targetRule, err.Error()))
-			continue
+			logger.Errorf("exec for %d error: %s", unitPid, err.Error())
 		}
-
-		if ifExist {
-			if i.Info.ContainerRuntime != "" {
-				if err := filesys.RemoveFile(ctx, i.Info.ContainerRuntime, i.Info.ContainerId, getContainerRuleFile(pid)); err != nil {
-					errMsg = fmt.Sprintf("%s. %s", errMsg, fmt.Sprintf("remove rule[%s] error: %s", targetRule, err.Error()))
-					continue
-				}
-			}
-			if err := os.RemoveAll(targetRule); err != nil {
-				errMsg = fmt.Sprintf("%s. %s", errMsg, fmt.Sprintf("remove rule[%s] error: %s", targetRule, err.Error()))
-			}
-		}
-	}
-
-	if errMsg != "" {
-		return errors.New(errMsg)
 	}
 
 	return nil
-}
-
-func getMethodExceptionRule(methodName, valueStr string) (*MethodJVMRule, error) {
-	return &MethodJVMRule{
-		Method:  methodName,
-		Fault:   InsertAtInject,
-		LineNum: 0,
-		Content: fmt.Sprintf("throw new Exception(\"%s\");", valueStr),
-	}, nil
 }

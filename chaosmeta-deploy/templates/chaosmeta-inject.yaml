@@ -248,17 +248,21 @@ spec:
         - --leader-elect
         command:
         - /manager
-        image: registry.cn-hangzhou.aliyuncs.com/chaosmeta/chaosmeta-inject-controller:v0.1.2
+        image: registry.cn-hangzhou.aliyuncs.com/chaosmeta/chaosmeta-inject-controller:v0.1.3
         imagePullPolicy: Always
         env:
           - name: DEFAULTNAMESPACE
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: LOCAL_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
         livenessProbe:
           httpGet:
             path: /healthz
-            port: 8081
+            port: 8083
           initialDelaySeconds: 20
           periodSeconds: 20
           failureThreshold: 3
@@ -270,7 +274,7 @@ spec:
         readinessProbe:
           httpGet:
             path: /readyz
-            port: 8081
+            port: 8083
           initialDelaySeconds: 20
           periodSeconds: 20
           failureThreshold: 3
@@ -376,9 +380,21 @@ data:
         },
         "daemonsetConfig": {
           "localExecPath": "/tmp",
+          "daemonName": "chaosmeta-daemon",
           "daemonNs": "chaosmeta",
           "daemonLabel": {
             "app.chaosmeta.io": "chaosmeta-daemon"
+          }
+        },
+        "middlewareConfig" : {
+          "url" : "http://shell-online-api.global.alipay.com",
+          "mistConfig" : {
+            "antVipUrl" : "antvip-pool.global.alipay.com",
+            "bkmiUrl" : "bkmi-read-pool.global.alipay.com",
+            "appName" : "antchaos",
+            "tenant" : "ALIPAY",
+            "mode" : "prod",
+            "secret" : "antchaos_fault_inject_online"
           }
         }
       }

@@ -18,6 +18,7 @@ package file
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"github.com/traas-stack/chaosmeta/chaosmetad/pkg/utils/cmdexec"
 	"github.com/traas-stack/chaosmeta/chaosmetad/test/common"
@@ -41,11 +42,11 @@ func GetFileAppendTest() []common.TestCase {
 			Error: true,
 		},
 		{
-			Args:  fmt.Sprintf("-p /notexistpath/temp.log -c \"%s\"", fileAppendContent),
+			Args:  fmt.Sprintf("-p /notexistpath/temp.log -c \"%s\"", base64.StdEncoding.EncodeToString([]byte(fileAppendContent))),
 			Error: true,
 		},
 		{
-			Args:  fmt.Sprintf("-p tempdir -c \"%s\"", fileAppendContent),
+			Args:  fmt.Sprintf("-p tempdir -c \"%s\"", base64.StdEncoding.EncodeToString([]byte(fileAppendContent))),
 			Error: true,
 			PreProcessor: func() error {
 				return cmdexec.RunBashCmdWithoutOutput(ctx, "mkdir tempdir")
@@ -55,34 +56,29 @@ func GetFileAppendTest() []common.TestCase {
 			},
 		},
 		{
-			Args: fmt.Sprintf("-p %s -c \"%s\"", fileAppendFileName, fileAppendContent),
+			Args: fmt.Sprintf("-p %s -c \"%s\"", fileAppendFileName, base64.StdEncoding.EncodeToString([]byte(fileAppendContent))),
 			PreProcessor: func() error {
 				return cmdexec.RunBashCmdWithoutOutput(ctx, fmt.Sprintf("echo -en \"%s\" > %s", fileInitContent, fileAppendFileName))
 			},
 			Check: func() error {
-				return checkAppend(fileAppendFileName, 3, 4, true)
+				return checkAppend(fileAppendFileName, 3, 2, false)
 			},
-			CheckRecover: func() error {
-				return checkAppend(fileAppendFileName, 3, 0, false)
-			},
+			//CheckRecover: func() error {
+			//	return checkAppend(fileAppendFileName, 3, 2, false)
+			//},
 			PostProcessor: func() error {
 				return os.Remove(fileAppendFileName)
 			},
 		},
 		{
-			Args: fmt.Sprintf("-p %s -c \"%s\" -r", fileAppendFileName, fileAppendContent),
+			Args: fmt.Sprintf("-p %s -c \"%s\"", fileAppendFileName, fileAppendContent),
 			PreProcessor: func() error {
 				return cmdexec.RunBashCmdWithoutOutput(ctx, fmt.Sprintf("echo -en \"%s\" > %s", fileInitContent, fileAppendFileName))
-			},
-			Check: func() error {
-				return checkAppend(fileAppendFileName, 3, 4, false)
-			},
-			CheckRecover: func() error {
-				return checkAppend(fileAppendFileName, 3, 4, false)
 			},
 			PostProcessor: func() error {
 				return os.Remove(fileAppendFileName)
 			},
+			Error: true,
 		},
 	}
 

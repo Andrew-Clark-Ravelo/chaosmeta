@@ -12,29 +12,6 @@ import weekday from 'dayjs/plugin/weekday';
 
 dayjs.extend(weekday);
 dayjs.extend(localeData);
-// 更多信息见文档：https://umijs.org/docs/api/runtime-config#getinitialstate
-// export async function getInitialState(): Promise<{
-//   userInfo: {
-//     name?: string;
-//     avatar: string;
-//     role?: string;
-//   };
-// }> {
-//   let userInfo = {
-//     avatar:
-//       'https://mdn.alipayobjects.com/huamei_d3kmvr/afts/img/A*RG7jSIPO-pQAAAAAAAAAAAAADmKmAQ/original',
-//   };
-//   // 获取当前用户信息
-//   const userName = localStorage.getItem('userName') || undefined;
-//   if (userName && history.location.pathname !== '/login') {
-//     // const userResult = await getUserInfo({ name: userName });
-//     userInfo = {
-//       ...userInfo,
-//       // ...userResult?.data,
-//     };
-//   }
-//   return { userInfo };
-// }
 
 /**
  * 请求配置

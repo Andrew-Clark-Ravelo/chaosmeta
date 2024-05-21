@@ -234,11 +234,12 @@ func solveRunning(ctx context.Context, wg *sync.WaitGroup, exp *v1alpha1.Experim
 
 		return
 	} else {
-		if expInfo.Status == v1alpha1.SuccessStatusType || expInfo.Status == v1alpha1.FailedStatusType || expInfo.Status == v1alpha1.RunningStatusType {
+		logger.Info("inject Handler", "expinfo", expInfo, "exp", exp)
+		if expInfo != nil && len(expInfo.Status) != 0 && (expInfo.Status == v1alpha1.SuccessStatusType || expInfo.Status == v1alpha1.FailedStatusType || expInfo.Status == v1alpha1.RunningStatusType) {
 			targetSubExp[i].StartTime, targetSubExp[i].UpdateTime = expInfo.CreateTime, expInfo.UpdateTime
 			targetSubExp[i].Status, targetSubExp[i].Message = expInfo.Status, expInfo.Message
 		} else {
-			logger.Error(fmt.Errorf("unexpected status"), fmt.Sprintf("expInfo.Status is %s", expInfo.Status))
+			logger.Error(fmt.Errorf("unexpected status"), fmt.Sprintf("expInfo is %s", expInfo))
 			return
 		}
 	}

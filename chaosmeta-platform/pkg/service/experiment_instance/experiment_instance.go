@@ -17,6 +17,7 @@
 package experiment_instance
 
 import (
+	experiment2 "chaosmeta-platform/pkg/models/experiment"
 	"chaosmeta-platform/pkg/models/experiment_instance"
 	"chaosmeta-platform/pkg/models/namespace"
 	"chaosmeta-platform/pkg/models/user"
@@ -139,18 +140,18 @@ type LabelInfo struct {
 }
 
 type ExperimentInstanceInfo struct {
-	UUID        string `json:"uuid"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Creator     int    `json:"creator"`
-	CreatorName string `json:"creator_name,omitempty"`
-	NamespaceId int    `json:"namespace_id"`
-
-	CreateTime string      `json:"create_time"`
-	UpdateTime string      `json:"update_time"`
-	Status     string      `json:"status"`
-	Message    string      `json:"message"`
-	Labels     []LabelInfo `json:"labels"`
+	UUID        string      `json:"uuid"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	Creator     int         `json:"creator"`
+	CreatorName string      `json:"creator_name,omitempty"`
+	NamespaceId int         `json:"namespace_id"`
+	ClusterId   int         `json:"cluster_id"`
+	CreateTime  string      `json:"create_time"`
+	UpdateTime  string      `json:"update_time"`
+	Status      string      `json:"status"`
+	Message     string      `json:"message"`
+	Labels      []LabelInfo `json:"labels"`
 }
 
 func (s *ExperimentInstanceService) GetExperimentInstanceByUUID(uuid string) (*ExperimentInstanceInfo, error) {
@@ -170,7 +171,10 @@ func (s *ExperimentInstanceService) GetExperimentInstanceByUUID(uuid string) (*E
 	if err := user.GetUserById(context.Background(), &userGet); err != nil {
 		log.Error(err)
 	}
-
+	experiment, err := experiment2.GetExperimentByUUID(exp.ExperimentUUID)
+	if err != nil {
+		log.Error(err)
+	}
 	expData := ExperimentInstanceInfo{
 		UUID:        exp.UUID,
 		Name:        exp.Name,
@@ -178,6 +182,7 @@ func (s *ExperimentInstanceService) GetExperimentInstanceByUUID(uuid string) (*E
 		Creator:     exp.Creator,
 		CreatorName: userGet.Email,
 		NamespaceId: exp.NamespaceID,
+		ClusterId:   experiment.ClusterID,
 		CreateTime:  exp.CreateTime.Format(time.RFC3339),
 		UpdateTime:  exp.UpdateTime.Format(time.RFC3339),
 		Status:      exp.Status,

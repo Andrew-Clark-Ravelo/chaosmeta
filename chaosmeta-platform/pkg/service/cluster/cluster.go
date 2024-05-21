@@ -124,16 +124,30 @@ func (c *ClusterService) DeleteList(ctx context.Context, ids []int) error {
 }
 
 func (c *ClusterService) GetList(ctx context.Context, name, orderBy string, page, pageSize int) (int64, []cluster.Cluster, error) {
-	return cluster.QueryCluster(ctx, name, "", orderBy, page, pageSize)
+	total, clusterList, err := cluster.QueryCluster(ctx, name, "", orderBy, page, pageSize)
+	if err != nil {
+		return 0, nil, err
+	}
+	for i, clusterCur := range clusterList {
+		if clusterCur.KubeConfig == "" {
+			continue
+		}
+		kubeConf, err := enc_dec.Decrypt([]byte(clusterCur.KubeConfig), []byte(config.DefaultRunOptIns.SecretKey))
+		if err != nil {
+			return 0, nil, err
+		}
+		clusterList[i].KubeConfig = base64.StdEncoding.EncodeToString(kubeConf)
+	}
+	return total, clusterList, err
 }
 
 func (c *ClusterService) GetRestConfig(ctx context.Context, id int) (*kubernetes.Clientset, *rest.Config, error) {
-	if config.DefaultRunOptIns.RunMode == "KubeConfig" {
+	if id == 0 && config.DefaultRunOptIns.RunMode == "KubeConfig" {
 		id = -1
 	}
-	if config.DefaultRunOptIns.RunMode == "ServiceAccount" {
-		id = 0
-	}
+	//if config.DefaultRunOptIns.RunMode == "ServiceAccount" {
+	//	id = 0
+	//}
 	if id == 0 {
 		return c.getRestConfigInCluster()
 	}

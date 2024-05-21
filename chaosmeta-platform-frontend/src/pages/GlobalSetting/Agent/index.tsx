@@ -1,144 +1,136 @@
+// react
+import React, { useRef, useState } from 'react';
+// UI 资产
 import { ExclamationCircleFilled, PlusOutlined } from '@ant-design/icons';
-import { PageContainer } from '@ant-design/pro-components';
-import { Button, Modal, Space, Tabs, Tooltip } from 'antd';
-import React, { useState } from 'react';
+import { PageContainer, ProTable } from '@ant-design/pro-components';
+import { Button, Input, Modal, Space, Tabs, Tag, Tooltip } from 'antd';
 import AddColonyModal from './AddColonyModal';
 import AppConfigDrawer from './AppConfigDrawer';
 import InstallAgentModal from './InstallAgentModal';
 import TableList from './TableList';
 import UpgradationDrawer from './UpgradationDrawer';
 import { Container } from './style';
+// 辅助函数
+import { useIntl } from '@umijs/max';
+// 类型定义
+import type { TabsProps } from 'antd';
+import type { ActionType } from '@ant-design/pro-components';
 
-const Agent: React.FC<unknown> = () => {
-  const [selectedRows, setSelectedRows] = useState<any[]>([]);
-  // 升级弹窗
-  const [upgradationOpen, setUpgradationOpen] = useState<any>({
-    id: '',
-    title: '',
-    open: false,
-  });
+type TabType = 'otherHost' | 'defaultHost';
 
-  // 应用配置
-  const [appConfigOpen, setAppConfigOpen] = useState<boolean>(false);
-  // 添加集群
-  const [addColonyOpen, setAddColonyOpen] = useState<boolean>(false);
-  // 安装Agent
-  const [installAgentOpen, setInstallAgentOpen] = useState<boolean>(false);
-  const tabItems = [
+const Agent: React.FunctionComponent = () => {
+  /** 国际化实例 */
+  const intl = useIntl();
+  // 卡片标签页项目
+  const [tabItems] = useState<TabsProps['items']>([
     {
-      label: '集群外Host',
-      key: 'else',
-      children: (
-        <TableList
-          selectedRows={selectedRows}
-          setSelectedRows={setSelectedRows}
-          setUpgradationOpen={setUpgradationOpen}
-          title="集群外Host"
-        />
-      ),
+      label: '集群外 Host',
+      key: 'otherHost',
     },
     {
       label: '默认集群',
-      key: 'normal',
-      children: (
-        <TableList
-          selectedRows={selectedRows}
-          setSelectedRows={setSelectedRows}
-          setUpgradationOpen={setUpgradationOpen}
-          title="默认集群"
-        />
-      ),
-      closable: false,
+      key: 'defaultHost',
     },
-  ];
-
-  /**
-   * 操作tab时
-   */
-  const handleEditTab = (action: any, key: string) => {
-    if (key === 'add') {
-      setAddColonyOpen(true);
-    } else {
-      Modal.confirm({
-        title: '确认要删除当前集群吗？',
-        icon: <ExclamationCircleFilled />,
-        onOk() {},
-        onCancel() {},
-      });
-    }
-  };
+  ]);
+  /** 当前激活的 tab */
+  const [currentTab, setCurrentTab] = useState<TabType>('otherHost')
+  /** 列表 actionRef 实例 */
+  const actionRef = useRef<ActionType>();
+  // 当前选中的表单行
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
 
   return (
     <Container>
-      <PageContainer title="空间管理">
+      <PageContainer
+        title={intl.formatMessage({ id: 'agentManagement.title' })}
+        extra={
+          <Space>
+            <Button>添加集群</Button>
+            <Button type="primary">安装 Agent</Button>
+          </Space>
+        }
+      >
         <Tabs
-          addIcon={
-            <>
-              <Tooltip title="添加集群">
-                <PlusOutlined />
-              </Tooltip>
-            </>
-          }
           items={tabItems}
-          onEdit={handleEditTab}
-          type="editable-card"
-          animated
+          type="card"
           tabPosition="top"
-          tabBarExtraContent={
-            <Space>
-              <Button
-                disabled={selectedRows.length === 0}
-                onClick={() => {
-                  setUpgradationOpen({
-                    open: true,
-                    title: '批量升级',
-                  });
-                }}
-              >
-                批量升级
-              </Button>
-              <Button
-                onClick={() => {
-                  setAppConfigOpen(true);
-                }}
-              >
-                应用配置
-              </Button>
-              <Button
-                type="primary"
-                onClick={() => {
-                  setInstallAgentOpen(true);
-                }}
-              >
-                安装Agent
-              </Button>
-            </Space>
-          }
+          activeKey={currentTab}
+          onChange={tab => setCurrentTab(tab as TabType)}
         />
+        <div
+          style={{
+            padding: 24,
+            background: '#EBF0F6',
+            borderBottomLeftRadius: 6,
+            borderBottomRightRadius: 6
+          }}
+        >
+          <ProTable
+            search={{
+              collapsed: false,
+              collapseRender: false,
+            }}
+            toolBarRender={false}
+            tableExtraRender={() => {
+              return (
+                <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                  <div></div>
+                </Space>
+              );
+            }}
+            actionRef={actionRef}
+            columns={[
+              {
+                title: 'Hostname',
+                width: 80,
+                dataIndex: 'hostname',
+              },
+              {
+                title: 'IP',
+                width: 160,
+                dataIndex: 'ip',
+              },
+              {
+                title: '应用',
+                width: 160,
+                dataIndex: 'app',
+              },
+              {
+                title: 'Agent 版本',
+                width: 160,
+                dataIndex: 'version',
+              },
+              {
+                title: 'Agent 状态',
+                width: 160,
+                dataIndex: 'state',
+                render(dom, { state }) {
+                  return (
+                    <Tag color="success">正常</Tag>
+                  );
+                },
+              },
+              {
+                title: '操作',
+                width: 160,
+                dataIndex: 'id',
+                hideInSearch: true,
+                render: (dom, { id }) => {
+                  return (
+                    <Space>
+                      <a>
+                        升级 Agent
+                      </a>
+                      <a>卸载</a>
+                    </Space>
+                  );
+                },
+              },
+            ]}
+            
+          />
+        </div>
       </PageContainer>
-      {/* 升级Agent */}
-      {upgradationOpen?.open && (
-        <UpgradationDrawer
-          drawerData={upgradationOpen}
-          setDrawerData={setUpgradationOpen}
-          selectedRows={selectedRows}
-        />
-      )}
-      {/* 应用配置 */}
-      {appConfigOpen && (
-        <AppConfigDrawer open={appConfigOpen} setOpen={setAppConfigOpen} />
-      )}
-      {/* 应用配置 */}
-      {addColonyOpen && (
-        <AddColonyModal open={addColonyOpen} setOpen={setAddColonyOpen} />
-      )}
-      {/* 安装Agent */}
-      {installAgentOpen && (
-        <InstallAgentModal
-          open={installAgentOpen}
-          setOpen={setInstallAgentOpen}
-        />
-      )}
     </Container>
   );
 };

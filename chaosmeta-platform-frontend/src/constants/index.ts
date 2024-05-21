@@ -1,8 +1,23 @@
 export const DEFAULT_NAME = 'Umi Max';
+class Config {
+  constructor() {
+    // 当前集群 id
+    // 供 KubernetesController 消费
+    // -1: 开发环境，0：生产环境
+    this._clusterId = 0;
+  }
 
-// KubernetesController使用
-// -1: 开发环境，0：生产环境
-export const envType = 0;
+  get clusterId() {
+    return this._clusterId;
+  }
+
+  set clusterId(id: number) {
+    this._clusterId = id;
+  }
+}
+
+/** 当前应用配置信息 */
+export const currentConfig = new Config();
 
 export const tagColors = [
   {
