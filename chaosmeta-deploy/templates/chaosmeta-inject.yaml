@@ -387,14 +387,14 @@ data:
           }
         },
         "middlewareConfig" : {
-          "url" : "http://shell-online-api.global.alipay.com",
+          "url" : "",
           "mistConfig" : {
-            "antVipUrl" : "antvip-pool.global.alipay.com",
-            "bkmiUrl" : "bkmi-read-pool.global.alipay.com",
-            "appName" : "antchaos",
-            "tenant" : "ALIPAY",
-            "mode" : "prod",
-            "secret" : "antchaos_fault_inject_online"
+            "antVipUrl" : "",
+            "bkmiUrl" : "",
+            "appName" : "",
+            "tenant" : "",
+            "mode" : "",
+            "secret" : ""
           }
         }
       }
